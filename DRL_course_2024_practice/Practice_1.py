@@ -2,27 +2,17 @@ import time
 import gym # need 17.3
 import gym_maze
 import numpy as np
+import matplotlib.pyplot as plt
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
 
-env = gym.make('maze-sample-5x5-v0')
-#print(env)
-action_n = 4
-state_n = 25
+#env = gym.make('maze-sample-5x5-v0')
+env = gym.make('Taxi-v3')
 
-class RandomAgent():
-    def __init__(self, action_n):
-        self.action_n = action_n
-
-    def get_action(self, state):
-        return np.random.randint(self.action_n)
-    
-def get_state(obs):
-    return 5 * obs[0] + obs[1]
-    
-agent = RandomAgent(action_n)
+action_n = 6
+state_n = 500
 
 class CrossEntopyAgent():
     def __init__(self, state_n, action_n):
@@ -39,7 +29,7 @@ class CrossEntopyAgent():
         for trajectory in elite_trajectories:
             for state, action in zip(trajectory['states'], trajectory['actions']):
                 new_model[state][action] += 1
-                print(f'new_model[state]: {new_model[state]}')
+                #print(f'new_model[state]: {new_model[state]}')
                 print(f'new_model[state][action]: {new_model[state][action]}, action: {action}, state: {state}' )
             
             for state in range(self.state_n):
@@ -54,9 +44,10 @@ class CrossEntopyAgent():
 
 
 def get_state(obs):
-    return int(np.sqrt(state_n) * obs[0] + obs[1])
+    print(obs)
+    return obs
 
-def get_trajectory(env, agent, max_len=1000, visualise=False):
+def get_trajectory(env, agent, max_len=1000, visualise=True):
     trajectory = {'states': [], 'actions': [], 'rewards': []}
 
     obs = env.reset()
@@ -87,15 +78,20 @@ q_param = 0.9
 iteration_n = 20
 trajectory_n = 50
 
+mean_rewards = []
+elite_trajectory_counts = []
+
 for iteration in range(iteration_n):
     #policy evaluation
     trajectories = [get_trajectory(env, agent) for _ in range(trajectory_n)]
 
-    for trajectory in trajectories:
-        print(f"trajectory['rewards']: {trajectory['rewards']}")
+    #for trajectory in trajectories:
+        #print(f"trajectory['rewards']: {trajectory['rewards']}")
 
     total_rewards = [np.sum(trajectory['rewards']) for trajectory in trajectories]
     print('iteration:', iteration, 'mean total reward:', np.mean(total_rewards))
+    mean_reward = np.mean(total_rewards)
+    mean_rewards.append(mean_reward)
 
     #policy improvement
     quantile = np.quantile(total_rewards, q_param)
@@ -105,6 +101,7 @@ for iteration in range(iteration_n):
         if total_reward > quantile:
             elite_trajectories.append(trajectory)
 
+    elite_trajectory_counts.append(len(elite_trajectories))
     agent.fit(elite_trajectories)
 
 trajectory = get_trajectory(env, agent, max_len=100, visualise=True)
@@ -112,20 +109,6 @@ print('total reward:', sum(trajectory['rewards']))
 print('model:')
 print(agent.model)
               
-
-            
-
-
-
-
-
-
-    
-
-
-
-#print(state)
-#env.render() # visualisation
 
 def sample_trajectory(env, agent, trajectory_len=1000, visualization=False):
     trajectory = {'states': [], 'actions': [], 'rewards': []}
@@ -149,4 +132,22 @@ def sample_trajectory(env, agent, trajectory_len=1000, visualization=False):
 
     return trajectory
 
+plt.figure(figsize=(12, 5))
 
+plt.subplot(1,2,1)
+plt.plot(range(iteration_n), mean_reward, label='Mean total reward', color='b')
+plt.xlabel('Iteration')
+plt.ylabel('Mean Total Reward')
+plt.title('Mean Total Reward over Iterations')
+plt.legend()
+
+# График количества элитных траекторий
+plt.subplot(1, 2, 2)
+plt.plot(range(iteration_n), elite_trajectory_counts, label='Elite Trajectories', color='g')
+plt.xlabel('Iteration')
+plt.ylabel('Number of Elite Trajectories')
+plt.title('Elite Trajectories over Iterations')
+plt.legend()
+
+plt.tight_layout()
+plt.show()
